@@ -2,6 +2,7 @@ package azuredevops
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -17,8 +18,8 @@ import (
 	"github.com/microsoft/azure-devops-go-api/azuredevops/operations"
 )
 
-var projectCreateTimeoutSeconds int = 30
-var projectDeleteTimeoutSeconds int = 30
+var projectCreateTimeoutSeconds time.Duration = 60
+var projectDeleteTimeoutSeconds time.Duration = 60
 
 func resourceProject() *schema.Resource {
 	return &schema.Resource{
@@ -84,7 +85,7 @@ func resourceProjectCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 // Make API call to create the project and wait for an async success/fail response from the service
-func createProject(clients *aggregatedClient, project *core.TeamProject, timeoutSeconds int) error {
+func createProject(clients *aggregatedClient, project *core.TeamProject, timeoutSeconds time.Duration) error {
 	operationRef, err := clients.CoreClient.QueueCreateProject(clients.ctx, core.QueueCreateProjectArgs{ProjectToCreate: project})
 	if err != nil {
 		return err
@@ -93,8 +94,8 @@ func createProject(clients *aggregatedClient, project *core.TeamProject, timeout
 	return waitForAsyncOperationSuccess(clients, operationRef, timeoutSeconds)
 }
 
-func waitForAsyncOperationSuccess(clients *aggregatedClient, operationRef *operations.OperationReference, timeoutSeconds int) error {
-	timeout := time.After(time.Duration(timeoutSeconds) * time.Second)
+func waitForAsyncOperationSuccess(clients *aggregatedClient, operationRef *operations.OperationReference, timeoutSeconds time.Duration) error {
+	timeout := time.After(timeoutSeconds * time.Second)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -118,7 +119,7 @@ func waitForAsyncOperationSuccess(clients *aggregatedClient, operationRef *opera
 				if err == nil {
 					settleDelay = time.Duration(i) * time.Second
 				}
-				fmt.Printf("Inserting artificial delay after project creation: %s\n", settleDelay.String())
+				log.Printf("Inserting artificial delay after project creation: %s\n", settleDelay.String())
 				time.Sleep(settleDelay)
 				return nil
 			}
@@ -175,7 +176,7 @@ func resourceProjectUpdate(d *schema.ResourceData, m interface{}) error {
 	return resourceProjectRead(d, m)
 }
 
-func updateProject(clients *aggregatedClient, project *core.TeamProject, timeoutSeconds int) error {
+func updateProject(clients *aggregatedClient, project *core.TeamProject, timeoutSeconds time.Duration) error {
 
 	operationRef, err := clients.CoreClient.UpdateProject(
 		clients.ctx,
@@ -198,7 +199,7 @@ func resourceProjectDelete(d *schema.ResourceData, m interface{}) error {
 	return deleteProject(clients, id, projectDeleteTimeoutSeconds)
 }
 
-func deleteProject(clients *aggregatedClient, id string, timeoutSeconds int) error {
+func deleteProject(clients *aggregatedClient, id string, timeoutSeconds time.Duration) error {
 	uuid, err := uuid.Parse(id)
 	if err != nil {
 		return fmt.Errorf("Invalid project UUID: %s", id)
