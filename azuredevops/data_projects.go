@@ -14,7 +14,7 @@ func dataProjects() *schema.Resource {
 		Read: dataSourceProjectsRead,
 		Schema: map[string]*schema.Schema{
 			"projects": {
-				Type:     schema.TypeList,
+				Type:     schema.TypeSet,
 				Computed: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -56,7 +56,42 @@ func dataSourceProjectsRead(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return fmt.Errorf("Error finding projects with state %s. Error: %v", state, err)
 	}
+
+	results := flattenProjects(projects)
 	return nil
+}
+
+func flattenProjects(input *projects) []interface{} {
+	results := make([]interface{}, 0)
+
+	for _, element := range input {
+		flattenedProject := flattenProject(element)
+		results = append(results, flattenedProject)
+	}
+
+	return results
+}
+
+func flattenProject(input *project) map[string]string {
+	output := make(map[string]string, 0)
+
+	if input.Name != nil {
+		output["name"] = *input.Name
+	}
+
+	if input.projectID != nil {
+		output["project_id"] = *input.projectID
+	}
+
+	if input.projectURL != nil {
+		output["project_url"] = *input.projectURL
+	}
+
+	if input.State != nil {
+		output["state"] = *input.State
+	}
+
+	return output
 }
 
 func getProjectsForState(clients *config.AggregatedClient, projectState string) ([]core.TeamProjectReference, error) {
